@@ -11,13 +11,9 @@ for i in range(pages):
 for i, n in enumerate(nodes):
     if time.time() - nodes[i]['updated'] > 900:
         nodes.pop(i)
-    else:
-        for j, m in enumerate(nodes):
-            if n['location']['latitude'] == m['location']['latitude'] and n['location']['longitude'] == m['location']['longitude']:
-                nodes.pop(j)
-                print('popping')
 
-print(len(nodes))
+
+print(len(nodes) + " nodes")
 
 f = open("nodemap.html", "w")
 
@@ -53,14 +49,23 @@ f.write(
 		tileSize: 512,
 		zoomOffset: -1
 	}).addTo(map);
+
+var markers = L.markerClusterGroup({
+spiderfyOnMaxZoom: false,
+showCoverageOnHover: true,
+zoomToBoundsOnClick: true,
+maxClusterRadius: 30
+});
+
 '''
 )
 
 for n in nodes:
-    f.write('L.marker([{}, {}]).addTo(map);\n'.format(n['location']['latitude'], n['location']['longitude']))
+    f.write('markers.addLayer(L.marker([{}, {}]).addTo(map));\n'.format(n['location']['latitude'], n['location']['longitude']))
 
 f.write(
 '''
+map.addLayer(markers);
 </script>
 
 
