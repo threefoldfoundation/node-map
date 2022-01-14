@@ -1,22 +1,32 @@
 import requests, time
 from requests_futures.sessions import FuturesSession
 
-r = requests.get('https://explorer.grid.tf/api/v1/nodes')
-pages = int(r.headers['Pages'])
-nodes = r.json()
+
+# Use unified explorer, by default queries all Grid 2 nets
+explorer = 'https://explorer.threefold.io/api/nodes?network=all'
+
+nodes = []
+
+r = requests.get(explorer)
+try:
+	pages = int(r.headers['Pages'])
+except KeyError:
+	pages = 1
+
+nodes += r.json()
 
 session = FuturesSession(max_workers=50)
 futures = []
 for i in range(pages - 1):    
-    f = session.get('https://explorer.grid.tf/api/v1/nodes?page=' + str(i + 2))
-    futures.append(f)
+	f = session.get(explorer + '?page=' + str(i + 2))
+	futures.append(f)
 
 for f in futures:
-    r = f.result()
-    nodes += r.json()
+	r = f.result()
+	nodes += r.json()
 
-
-nodes = [n for n in nodes if not time.time() - n['updated'] > 60 * 60 * 24]
+# Include all nodes online in the last hour
+nodes = [n for n in nodes if not time.time() - n['updated'] > 60 * 60 * 2]
 
 
 print(str(len(nodes)) + " nodes")
@@ -46,18 +56,22 @@ f.write(
 </head>
 <body>
 
-<div id="map" style="width: 1200px; height: 800px;"></div>
+<h1>ThreeFold Grid 2 Nodes</h1>
+'''
+)
+
+f.write('Showing {} nodes that were online in the last hour, across mainnet, testnet, and devnet.'.format(len(nodes)))
+
+f.write(
+'''
+<br><br>
+<div id="map" style="height: 600px;"></div>
 <script>
 
 	var map = L.map('map').setView([51.505, -0.09], 2);
 
-	var tiles = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
-		maxZoom: 18,
-		attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
-			'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-		id: 'mapbox/streets-v11',
-		tileSize: 512,
-		zoomOffset: -1
+	var tiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+	attribution: 'Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, &copy OpenStreetMap contributors, and the GIS User Community'
 	}).addTo(map);
 
 var markers = L.markerClusterGroup({
