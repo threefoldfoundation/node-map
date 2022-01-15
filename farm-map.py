@@ -1,11 +1,14 @@
 import requests, time
 from requests_futures.sessions import FuturesSession
 
+from gql import Client, gql
+from gql.transport.requests import RequestsHTTPTransport
+
 
 # Use unified explorer, by default queries all Grid 2 nets
 explorer = 'https://explorer.threefold.io/api/nodes?network=all'
 
-nodes = []
+nodes2 = []
 
 r = requests.get(explorer)
 try:
@@ -13,7 +16,7 @@ try:
 except KeyError:
 	pages = 1
 
-nodes += r.json()
+nodes2 += r.json()
 
 session = FuturesSession(max_workers=50)
 futures = []
@@ -23,13 +26,62 @@ for i in range(pages - 1):
 
 for f in futures:
 	r = f.result()
-	nodes += r.json()
+	nodes2 += r.json()
 
 # Include all nodes online in the last hour
-nodes = [n for n in nodes if not time.time() - n['updated'] > 60 * 60 * 2]
+nodes2 = [n for n in nodes2 if not time.time() - n['updated'] > 60 * 60 * 1]
+
+# Retrieve Grid 3 nodes from grid proxy
+
+nodes3 = []
+proxies = ['https://gridproxy.dev.grid.tf/', 'https://gridproxy.test.grid.tf/', 'https://gridproxy.grid.tf/']
+
+subnets = ['.dev', '.test', '']
+proxy_base = 'https://gridproxy{}.grid.tf/nodes'
+gql_base = 'https://graphql{}.grid.tf/graphql'
+
+query = """
+query MyQuery {{
+  nodes(where: {{nodeId_in: {}}}, limit: {}) {{
+    location {{
+      latitude
+      longitude
+    }}
+	nodeId
+  }}
+}}
+"""
+
+for net in subnets:
+	proxy = proxy_base.format(net)
+	nodes = []
+
+	r = requests.get(proxy)
+	page = 2
+	while r.json():
+		nodes += r.json()
+		r = requests.get(proxy + '?page=' + str(page))
+		page += 1
+
+	nodes = [n for n in nodes if n['status'] == 'up']
+	node_ids = [n['nodeId'] for n in nodes]
+
+	# Use GraphQL to retrieve location data, not provided by grid proxy
+	transport = RequestsHTTPTransport(url=gql_base.format(net), verify=True, retries=3)
+
+	client = Client(transport=transport, fetch_schema_from_transport=True)
+	result = client.execute(gql(query.format(node_ids, len(node_ids))))
+
+	for n in result['nodes']:
+		for o in nodes:
+			if n['nodeId'] == o['nodeId']:
+				o['location'] = n['location']
+				o['location']['country'] = o['country']
+
+	nodes3 += nodes
 
 
-print(str(len(nodes)) + " nodes")
+print(str(len(nodes2 + nodes3)) + " nodes")
 
 f = open("nodemap.html", "w")
 
@@ -56,11 +108,14 @@ f.write(
 </head>
 <body>
 
-<h1>ThreeFold Grid 2 Nodes</h1>
+<h1>ThreeFold Node Map</h1>
 '''
 )
 
-f.write('Showing {} nodes that were online in the last hour, across mainnet, testnet, and devnet.'.format(len(nodes)))
+f.write(
+'''
+<strong>Grid 2:</strong> {}} | <strong>Grid 3:</strong> {}} | <strong>Total:</strong> {}}
+'''.format(len(nodes2), len(nodes3), len(nodes2 + nodes3)))
 
 f.write(
 '''
@@ -74,7 +129,14 @@ f.write(
 	attribution: 'Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, &copy OpenStreetMap contributors, and the GIS User Community'
 	}).addTo(map);
 
-var markers = L.markerClusterGroup({
+var markers2 = L.markerClusterGroup({
+spiderfyOnMaxZoom: false,
+showCoverageOnHover: true,
+zoomToBoundsOnClick: true,
+maxClusterRadius: 30
+});
+
+var markers3 = L.markerClusterGroup({
 spiderfyOnMaxZoom: false,
 showCoverageOnHover: true,
 zoomToBoundsOnClick: true,
@@ -84,13 +146,25 @@ maxClusterRadius: 30
 '''
 )
 
-for n in nodes:
+for n in nodes2 + nodes3:
     f.write('<!-- {} -->\n'.format(n['location']['country']))
-    f.write('markers.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
+    f.write('markers2.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
+
+for n in nodes3:
+    f.write('<!-- {} -->\n'.format(n['location']['country']))
+    f.write('markers3.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
 
 f.write(
 '''
-map.addLayer(markers);
+var markers = {
+    "Grid 2": markers2,
+    "Grid 3": markers3
+};
+
+map.addLayer(markers2);
+map.addLayer(markers3);
+
+L.control.layers(null, markers, {collapsed: false}).addTo(map);
 </script>
 
 
