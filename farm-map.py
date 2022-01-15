@@ -114,7 +114,7 @@ f.write(
 
 f.write(
 '''
-<strong>Grid 2:</strong> {}} | <strong>Grid 3:</strong> {}} | <strong>Total:</strong> {}}
+<strong>Grid 2:</strong> {} | <strong>Grid 3:</strong> {} | <strong>Total:</strong> {}
 '''.format(len(nodes2), len(nodes3), len(nodes2 + nodes3)))
 
 f.write(
