@@ -1,6 +1,6 @@
 # ThreeFold Grid Node Map
 
-This is a small Python program which queries data about nodes on the ThreeFold Grid and generates an html map based on geolocation data.
+This is a small Python 3 program which queries data about nodes on the ThreeFold Grid and generates an html map based on geolocation data.
 
 ## Dependencies
 

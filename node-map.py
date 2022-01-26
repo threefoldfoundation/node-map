@@ -32,7 +32,6 @@ for f in futures:
 nodes2 = [n for n in nodes2 if not time.time() - n['updated'] > 60 * 60 * 1]
 
 # Retrieve Grid 3 nodes from grid proxy
-
 nodes3 = []
 proxies = ['https://gridproxy.dev.grid.tf/', 'https://gridproxy.test.grid.tf/', 'https://gridproxy.grid.tf/']
 
@@ -40,6 +39,7 @@ subnets = ['.dev', '.test', '']
 proxy_base = 'https://gridproxy{}.grid.tf/nodes'
 gql_base = 'https://graphql{}.grid.tf/graphql'
 
+# Use double curly brackets to leave a single one after formating
 query = """
 query MyQuery {{
   nodes(where: {{nodeId_in: {}}}, limit: {}) {{
@@ -56,6 +56,7 @@ for net in subnets:
 	proxy = proxy_base.format(net)
 	nodes = []
 
+	# Grid proxy doesn't return a page count, so use serial requests here
 	r = requests.get(proxy)
 	page = 2
 	while r.json():
@@ -63,6 +64,8 @@ for net in subnets:
 		r = requests.get(proxy + '?page=' + str(page))
 		page += 1
 
+	# Grid proxy may not be a reliable way to determine if nodes are up anymore
+	# Explorer now uses updatedAt from GraphQL
 	nodes = [n for n in nodes if n['status'] == 'up']
 	node_ids = [n['nodeId'] for n in nodes]
 
