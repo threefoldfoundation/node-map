@@ -4,7 +4,7 @@ This is a small Python 3 program which queries data about nodes on the ThreeFold
 
 ## Dependencies
 
-Two Python libraries are required: `requests-futures` for concurrent http requests and `gql` for GraphQL queries. Both can be installed with `pip`.
+Two Python libraries are required: `requests-futures` for concurrent http requests and `gql[requests]` for GraphQL queries. Both can be installed with `pip`.
 
 ## Run
 
