@@ -37,7 +37,6 @@ proxies = ['https://gridproxy.dev.grid.tf/', 'https://gridproxy.test.grid.tf/', 
 
 subnets = ['.dev', '.test', '']
 proxy_base = 'https://gridproxy{}.grid.tf/nodes'
-gql_base = 'https://graphql{}.grid.tf/graphql'
 
 # Use double curly brackets to leave a single one after formating
 query = """
@@ -70,7 +69,12 @@ for net in subnets:
 	node_ids = [n['nodeId'] for n in nodes]
 
 	# Use GraphQL to retrieve location data, not provided by grid proxy
-	transport = RequestsHTTPTransport(url=gql_base.format(net), verify=True, retries=3)
+	if not net:
+		url = 'https://graph.grid.tf/graphql'
+	else:
+		url = 'https://graphql{}.grid.tf/graphql'.format(net)
+
+	transport = RequestsHTTPTransport(url=url, verify=True, retries=3)
 
 	client = Client(transport=transport, fetch_schema_from_transport=True)
 	result = client.execute(gql(query.format(node_ids, len(node_ids))))
@@ -149,9 +153,13 @@ maxClusterRadius: 30
 '''
 )
 
-for n in nodes2 + nodes3:
+for n in nodes2:
     f.write('<!-- {} -->\n'.format(n['location']['country']))
-    f.write('markers2.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
+    try:
+        f.write('markers2.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
+    except KeyError:
+		# Unified explorer is now returning Grid 3 nodes. Since they don't come with lat/long info, they can be discarded like this
+		pass
 
 for n in nodes3:
     f.write('<!-- {} -->\n'.format(n['location']['country']))
