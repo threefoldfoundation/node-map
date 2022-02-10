@@ -116,6 +116,8 @@ f.write(
 <body>
 
 <h1>ThreeFold Node Map</h1>
+<em>Please note, this map is a work in progress and may not be completely accurate</em>
+<br><br>
 '''
 )
 
@@ -158,8 +160,8 @@ for n in nodes2:
     try:
         f.write('markers2.addLayer(L.marker([{}, {}]));\n'.format(n['location']['latitude'], n['location']['longitude']))
     except KeyError:
-		# Unified explorer is now returning Grid 3 nodes. Since they don't come with lat/long info, they can be discarded like this
-		pass
+        # Unified explorer is now returning Grid 3 nodes. Since they don't come with lat/long info, they can be discarded like this
+        pass
 
 for n in nodes3:
     f.write('<!-- {} -->\n'.format(n['location']['country']))
